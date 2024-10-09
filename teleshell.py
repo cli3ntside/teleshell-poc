@@ -23,13 +23,9 @@ def get_temp_folder():
     return os.path.join(user_profile, 'AppData', 'Local', 'Temp')
 
 def get_external_ip():
-    try:
         response = requests.get('https://api.ipify.org?format=json')
         ip_data = response.json()
         return ip_data['ip']
-    except Exception as e:
-        print(f"Ip api error: {e}")
-        return None
 
 def get_client_info():
     username = socket.gethostname()
